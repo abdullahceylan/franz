@@ -6,19 +6,13 @@ import { RouterStore } from 'mobx-react-router';
 import Pricing from '../../components/auth/Pricing';
 import UserStore from '../../stores/UserStore';
 import PaymentStore from '../../stores/PaymentStore';
-import { gaPage } from '../../lib/analytics';
 
 import { globalError as globalErrorPropType } from '../../prop-types';
 
-@inject('stores', 'actions') @observer
-export default class PricingScreen extends Component {
+export default @inject('stores', 'actions') @observer class PricingScreen extends Component {
   static propTypes = {
     error: globalErrorPropType.isRequired,
   };
-
-  componentDidMount() {
-    gaPage('Auth/Pricing');
-  }
 
   render() {
     const { actions, stores, error } = this.props;

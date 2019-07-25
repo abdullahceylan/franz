@@ -1,10 +1,12 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { inject, observer } from 'mobx-react';
+import { ThemeProvider } from 'react-jss';
 
 import AppStore from '../../stores/AppStore';
 import RecipesStore from '../../stores/RecipesStore';
 import ServicesStore from '../../stores/ServicesStore';
+import FeaturesStore from '../../stores/FeaturesStore';
 import UIStore from '../../stores/UIStore';
 import NewsStore from '../../stores/NewsStore';
 import SettingsStore from '../../stores/SettingsStore';
@@ -17,8 +19,12 @@ import Sidebar from '../../components/layout/Sidebar';
 import Services from '../../components/services/content/Services';
 import AppLoader from '../../components/ui/AppLoader';
 
-@inject('stores', 'actions') @observer
-export default class AppLayoutContainer extends Component {
+import { state as delayAppState } from '../../features/delayApp';
+import { workspaceActions } from '../../features/workspaces/actions';
+import WorkspaceDrawer from '../../features/workspaces/components/WorkspaceDrawer';
+import { workspaceStore } from '../../features/workspaces';
+
+export default @inject('stores', 'actions') @observer class AppLayoutContainer extends Component {
   static defaultProps = {
     children: null,
   };
@@ -26,6 +32,7 @@ export default class AppLayoutContainer extends Component {
   render() {
     const {
       app,
+      features,
       services,
       ui,
       news,
@@ -38,8 +45,8 @@ export default class AppLayoutContainer extends Component {
       setActive,
       handleIPCMessage,
       setWebviewReference,
+      detachService,
       openWindow,
-      reloadUpdatedServices,
       reorder,
       reload,
       toggleNotifications,
@@ -64,14 +71,28 @@ export default class AppLayoutContainer extends Component {
 
     const { children } = this.props;
 
+    const isLoadingFeatures = features.featuresRequest.isExecuting
+      && !features.featuresRequest.wasExecuted;
+
     const isLoadingServices = services.allServicesRequest.isExecuting
       && services.allServicesRequest.isExecutingFirstTime;
 
-    if (isLoadingServices) {
+    if (isLoadingFeatures || isLoadingServices) {
       return (
-        <AppLoader />
+        <ThemeProvider theme={ui.theme}>
+          <AppLoader />
+        </ThemeProvider>
       );
     }
+
+    const workspacesDrawer = (
+      <WorkspaceDrawer
+        getServicesForWorkspace={workspace => (
+          workspace ? workspaceStore.getWorkspaceServices(workspace).map(s => s.name) : services.all.map(s => s.name)
+        )}
+        onUpgradeAccountClick={() => openSettings({ path: 'user' })}
+      />
+    );
 
     const sidebar = (
       <Sidebar
@@ -87,6 +108,8 @@ export default class AppLayoutContainer extends Component {
         deleteService={deleteService}
         updateService={updateService}
         toggleMuteApp={toggleMuteApp}
+        toggleWorkspaceDrawer={workspaceActions.toggleWorkspaceDrawer}
+        isWorkspaceDrawerOpen={workspaceStore.isWorkspaceDrawerOpen}
         showMessageBadgeWhenMutedSetting={settings.all.app.showMessageBadgeWhenMuted}
         showMessageBadgesEvenWhenMuted={ui.showMessageBadgesEvenWhenMuted}
       />
@@ -97,33 +120,39 @@ export default class AppLayoutContainer extends Component {
         services={services.allDisplayedUnordered}
         handleIPCMessage={handleIPCMessage}
         setWebviewReference={setWebviewReference}
+        detachService={detachService}
         openWindow={openWindow}
         reload={reload}
-        isAppMuted={settings.all.app.isAppMuted}
+        openSettings={openSettings}
         update={updateService}
       />
     );
 
     return (
-      <AppLayout
-        isFullScreen={app.isFullScreen}
-        isOnline={app.isOnline}
-        showServicesUpdatedInfoBar={ui.showServicesUpdatedInfoBar}
-        appUpdateIsDownloaded={app.updateStatus === app.updateStatusTypes.DOWNLOADED}
-        sidebar={sidebar}
-        services={servicesContainer}
-        news={news.latest}
-        removeNewsItem={hide}
-        reloadServicesAfterUpdate={reloadUpdatedServices}
-        installAppUpdate={installUpdate}
-        globalError={globalError.error}
-        showRequiredRequestsError={requests.showRequiredRequestsError}
-        areRequiredRequestsSuccessful={requests.areRequiredRequestsSuccessful}
-        retryRequiredRequests={retryRequiredRequests}
-        areRequiredRequestsLoading={requests.areRequiredRequestsLoading}
-      >
-        {React.Children.count(children) > 0 ? children : null}
-      </AppLayout>
+      <ThemeProvider theme={ui.theme}>
+        <AppLayout
+          isFullScreen={app.isFullScreen}
+          isOnline={app.isOnline}
+          showServicesUpdatedInfoBar={ui.showServicesUpdatedInfoBar}
+          appUpdateIsDownloaded={app.updateStatus === app.updateStatusTypes.DOWNLOADED}
+          nextAppReleaseVersion={app.nextAppReleaseVersion}
+          sidebar={sidebar}
+          workspacesDrawer={workspacesDrawer}
+          services={servicesContainer}
+          news={news.latest}
+          removeNewsItem={hide}
+          reloadServicesAfterUpdate={() => window.location.reload()}
+          installAppUpdate={installUpdate}
+          globalError={globalError.error}
+          showRequiredRequestsError={requests.showRequiredRequestsError}
+          areRequiredRequestsSuccessful={requests.areRequiredRequestsSuccessful}
+          retryRequiredRequests={retryRequiredRequests}
+          areRequiredRequestsLoading={requests.areRequiredRequestsLoading}
+          isDelayAppScreenVisible={delayAppState.isDelayAppScreenVisible}
+        >
+          {React.Children.count(children) > 0 ? children : null}
+        </AppLayout>
+      </ThemeProvider>
     );
   }
 }
@@ -131,6 +160,7 @@ export default class AppLayoutContainer extends Component {
 AppLayoutContainer.wrappedComponent.propTypes = {
   stores: PropTypes.shape({
     services: PropTypes.instanceOf(ServicesStore).isRequired,
+    features: PropTypes.instanceOf(FeaturesStore).isRequired,
     recipes: PropTypes.instanceOf(RecipesStore).isRequired,
     app: PropTypes.instanceOf(AppStore).isRequired,
     ui: PropTypes.instanceOf(UIStore).isRequired,
@@ -147,6 +177,7 @@ AppLayoutContainer.wrappedComponent.propTypes = {
       toggleAudio: PropTypes.func.isRequired,
       handleIPCMessage: PropTypes.func.isRequired,
       setWebviewReference: PropTypes.func.isRequired,
+      detachService: PropTypes.func.isRequired,
       openWindow: PropTypes.func.isRequired,
       reloadUpdatedServices: PropTypes.func.isRequired,
       updateService: PropTypes.func.isRequired,

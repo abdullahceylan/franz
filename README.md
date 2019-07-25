@@ -1,17 +1,19 @@
-**This repository is only for Franz 5 and later, previous versions are no longer maintained.**
----
-
 <img src="./build-helpers/images/icon.png" alt="" width="150"/>
 
-# Franz 5 (beta)
+# Franz 5
 [![Build status Windows](https://ci.appveyor.com/api/projects/status/9yman4ye19x4274o/branch/master?svg=true)](https://ci.appveyor.com/project/adlk/franz/branch/master)
- [![Build Status Mac](https://travis-ci.org/meetfranz/franz.svg?branch=master)](https://travis-ci.org/meetfranz/franz) [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](http://meetfranz.com/payment.html)
+ [![Build Status Mac & Linux](https://travis-ci.com/meetfranz/franz.svg?branch=master)](https://travis-ci.com/meetfranz/franz) [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://meetfranz.com/payment.html)
 
 Messaging app for WhatsApp, Slack, Telegram, HipChat, Hangouts and many many more.
 
 ## [Download Franz](https://www.meetfranz.com)
 👉 www.meetfranz.com
 
+### Or use homebrew (macOS only)
+
+`$ brew cask install franz`
+
+(Don't know homebrew? [brew.sh](https://brew.sh/))
 
 ## Development
 
@@ -20,34 +22,31 @@ Messaging app for WhatsApp, Slack, Telegram, HipChat, Hangouts and many many mor
 #### Install Linux OS dependencies
 [Guide: Linux distribution specific dependencies](docs/linux.md)
 
-#### Install yarn
-##### MacOS
-```bash
-$ brew install yarn
-```
-##### Windows
-[Download installer](https://yarnpkg.com/latest.msi)
-
-##### Linux
-[Install Yarn on Linux](https://yarnpkg.com/lang/en/docs/install/)
-
 #### Fix native modules to match current electron node version
 ```bash
-$ yarn run rebuild
+$ npm run rebuild
 ```
+
+### Install dependencies
+Run the following command to install all dependencies, and link sibling modules with Franz.
+```bash
+$ npx lerna bootstrap
+```
+
+If you previously ran `npm install` it sometimes is necessary to delete your `node_modules` folder before running `npx lerna bootstrap`. 
 
 ### Run Franz Development App
 Run these two commands __simultaneously__ in different console tabs.
 
 ```bash
-$ yarn run dev
-$ yarn start
+$ npm run dev
+$ npm run start
 ```
 Be aware that the development database will be reset regularly.
 
 ## Packaging
 ```bash
-$ yarn build
+$ npm run build
 ```
 
 ## How can I support the project?

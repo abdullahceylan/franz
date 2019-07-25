@@ -49,8 +49,7 @@ const messages = defineMessages({
   },
 });
 
-@observer
-export default class ServicesDashboard extends Component {
+export default @observer class ServicesDashboard extends Component {
   static propTypes = {
     services: MobxPropTypes.arrayOrObservableArray.isRequired,
     isLoading: PropTypes.bool.isRequired,
@@ -66,7 +65,7 @@ export default class ServicesDashboard extends Component {
 
   static defaultProps = {
     searchNeedle: '',
-  }
+  };
 
   static contextTypes = {
     intl: intlShape,
@@ -102,17 +101,15 @@ export default class ServicesDashboard extends Component {
             />
           )}
           {!isLoading && servicesRequestFailed && (
-            <div>
-              <Infobox
-                icon="alert"
-                type="danger"
-                ctaLabel={intl.formatMessage(messages.tryReloadServices)}
-                ctaLoading={isLoading}
-                ctaOnClick={retryServicesRequest}
-              >
-                {intl.formatMessage(messages.servicesRequestFailed)}
-              </Infobox>
-            </div>
+            <Infobox
+              icon="alert"
+              type="danger"
+              ctaLabel={intl.formatMessage(messages.tryReloadServices)}
+              ctaLoading={isLoading}
+              ctaOnClick={retryServicesRequest}
+            >
+              {intl.formatMessage(messages.servicesRequestFailed)}
+            </Infobox>
           )}
 
           {status.length > 0 && status.includes('updated') && (

@@ -1,20 +1,32 @@
-import { action, reaction, computed, observable } from 'mobx';
+import {
+  action,
+  reaction,
+  computed,
+  observable,
+} from 'mobx';
 import { debounce, remove } from 'lodash';
+import ms from 'ms';
 
 import Store from './lib/Store';
 import Request from './lib/Request';
 import CachedRequest from './lib/CachedRequest';
 import { matchRoute } from '../helpers/routing-helpers';
-import { gaEvent } from '../lib/analytics';
+import { gaEvent, statsEvent } from '../lib/analytics';
+import { workspaceStore } from '../features/workspaces';
 
-const debug = require('debug')('ServiceStore');
+const debug = require('debug')('Franz:ServiceStore');
 
 export default class ServicesStore extends Store {
   @observable allServicesRequest = new CachedRequest(this.api.services, 'all');
+
   @observable createServiceRequest = new Request(this.api.services, 'create');
+
   @observable updateServiceRequest = new Request(this.api.services, 'update');
+
   @observable reorderServicesRequest = new Request(this.api.services, 'reorder');
+
   @observable deleteServiceRequest = new Request(this.api.services, 'delete');
+
   @observable clearCacheRequest = new Request(this.api.services, 'clearCache');
 
   @observable filterNeedle = null;
@@ -24,6 +36,7 @@ export default class ServicesStore extends Store {
 
     // Register action handlers
     this.actions.service.setActive.listen(this._setActive.bind(this));
+    this.actions.service.blurActive.listen(this._blurActive.bind(this));
     this.actions.service.setActiveNext.listen(this._setActiveNext.bind(this));
     this.actions.service.setActivePrev.listen(this._setActivePrev.bind(this));
     this.actions.service.showAddServiceInterface.listen(this._showAddServiceInterface.bind(this));
@@ -33,6 +46,7 @@ export default class ServicesStore extends Store {
     this.actions.service.deleteService.listen(this._deleteService.bind(this));
     this.actions.service.clearCache.listen(this._clearCache.bind(this));
     this.actions.service.setWebviewReference.listen(this._setWebviewReference.bind(this));
+    this.actions.service.detachService.listen(this._detachService.bind(this));
     this.actions.service.focusService.listen(this._focusService.bind(this));
     this.actions.service.focusActiveService.listen(this._focusActiveService.bind(this));
     this.actions.service.toggleService.listen(this._toggleService.bind(this));
@@ -60,6 +74,7 @@ export default class ServicesStore extends Store {
       this._mapActiveServiceToServiceModelReaction.bind(this),
       this._saveActiveService.bind(this),
       this._logoutReaction.bind(this),
+      this._handleMuteSettings.bind(this),
     ]);
 
     // Just bind this
@@ -67,9 +82,14 @@ export default class ServicesStore extends Store {
   }
 
   setup() {
-    // Single key reactions
+    // Single key reactions for the sake of your CPU
     reaction(
-      () => this.stores.settings.all.app.enableSpellchecking,
+      () => this.stores.settings.app.enableSpellchecking,
+      () => this._shareSettingsWithServiceProcess(),
+    );
+
+    reaction(
+      () => this.stores.settings.app.spellcheckerLanguage,
       () => this._shareSettingsWithServiceProcess(),
     );
   }
@@ -81,7 +101,6 @@ export default class ServicesStore extends Store {
         return observable(services.slice().slice().sort((a, b) => a.order - b.order));
       }
     }
-
     return [];
   }
 
@@ -90,13 +109,16 @@ export default class ServicesStore extends Store {
   }
 
   @computed get allDisplayed() {
-    return this.stores.settings.all.app.showDisabledServices ? this.all : this.enabled;
+    const services = this.stores.settings.all.app.showDisabledServices ? this.all : this.enabled;
+    return workspaceStore.filterServicesByActiveWorkspace(services);
   }
 
-  // This is just used to avoid unnecessary rerendering of resource-heavy webviews 
+  // This is just used to avoid unnecessary rerendering of resource-heavy webviews
   @computed get allDisplayedUnordered() {
+    const { showDisabledServices } = this.stores.settings.all.app;
     const services = this.allServicesRequest.execute().result || [];
-    return this.stores.settings.all.app.showDisabledServices ? services : services.filter(service => service.isEnabled);
+    const filteredServices = showDisabledServices ? services : services.filter(service => service.isEnabled);
+    return workspaceStore.filterServicesByActiveWorkspace(filteredServices);
   }
 
   @computed get filtered() {
@@ -126,28 +148,25 @@ export default class ServicesStore extends Store {
   }
 
   async _showAddServiceInterface({ recipeId }) {
-    const recipesStore = this.stores.recipes;
-
-    if (recipesStore.isInstalled(recipeId)) {
-      debug(`Recipe ${recipeId} is installed`);
-      this._redirectToAddServiceRoute(recipeId);
-    } else {
-      debug(`Recipe ${recipeId} is not installed`);
-      // We access the RecipeStore action directly
-      // returns Promise instead of action
-      await this.stores.recipes._install({ recipeId });
-      this._redirectToAddServiceRoute(recipeId);
-    }
+    this.stores.router.push(`/settings/services/add/${recipeId}`);
   }
 
   // Actions
   @action async _createService({ recipeId, serviceData, redirect = true }) {
     const data = this._cleanUpTeamIdAndCustomUrl(recipeId, serviceData);
+
     const response = await this.createServiceRequest.execute(recipeId, data)._promise;
 
     this.allServicesRequest.patch((result) => {
       if (!result) return;
       result.push(response.data);
+    });
+
+    this.actions.settings.update({
+      type: 'proxy',
+      data: {
+        [`${response.data.id}`]: data.proxy,
+      },
     });
 
     this.actionStatus = response.status || [];
@@ -214,6 +233,21 @@ export default class ServicesStore extends Store {
     await request._promise;
     this.actionStatus = request.result.status;
 
+    if (service.isEnabled) {
+      this._sendIPCMessage({
+        serviceId,
+        channel: 'service-settings-update',
+        args: newData,
+      });
+    }
+
+    this.actions.settings.update({
+      type: 'proxy',
+      data: {
+        [`${serviceId}`]: data.proxy,
+      },
+    });
+
     if (redirect) {
       this.stores.router.push('/settings/services');
       gaEvent('Service', 'update', service.recipe.id);
@@ -246,13 +280,23 @@ export default class ServicesStore extends Store {
     gaEvent('Service', 'clear cache');
   }
 
-  @action _setActive({ serviceId }) {
+  @action _setActive({ serviceId, keepActiveRoute }) {
+    if (!keepActiveRoute) this.stores.router.push('/');
     const service = this.one(serviceId);
 
     this.all.forEach((s, index) => {
       this.all[index].isActive = false;
     });
     service.isActive = true;
+
+    statsEvent('activate-service', service.recipe.id);
+
+    this._focusActiveService();
+  }
+
+  @action _blurActive() {
+    if (!this.active) return;
+    this.active.isActive = false;
   }
 
   @action _setActiveNext() {
@@ -288,17 +332,29 @@ export default class ServicesStore extends Store {
     service.webview = webview;
 
     if (!service.isAttached) {
-      service.initializeWebViewEvents(this);
+      debug('Webview is not attached, initializing');
+      service.initializeWebViewEvents({
+        handleIPCMessage: this.actions.service.handleIPCMessage,
+        openWindow: this.actions.service.openWindow,
+      });
       service.initializeWebViewListener();
     }
 
     service.isAttached = true;
   }
 
+  @action _detachService({ service }) {
+    service.webview = null;
+    service.isAttached = false;
+  }
+
   @action _focusService({ serviceId }) {
     const service = this.one(serviceId);
 
     if (service.webview) {
+      if (document.activeElement) {
+        document.activeElement.blur();
+      }
       service.webview.focus();
     }
   }
@@ -372,6 +428,18 @@ export default class ServicesStore extends Store {
       const url = args[0];
 
       this.actions.app.openExternalUrl({ url });
+    } else if (channel === 'set-service-spellchecker-language') {
+      if (!args) {
+        console.warn('Did not receive locale');
+      } else {
+        this.actions.service.updateService({
+          serviceId,
+          serviceData: {
+            spellcheckerLanguage: args[0] === 'reset' ? '' : args[0],
+          },
+          redirect: false,
+        });
+      }
     }
   }
 
@@ -411,6 +479,8 @@ export default class ServicesStore extends Store {
 
   @action _reload({ serviceId }) {
     const service = this.one(serviceId);
+    if (!service.isEnabled) return;
+
     service.resetMessageCount();
 
     service.webview.loadURL(service.url);
@@ -437,7 +507,16 @@ export default class ServicesStore extends Store {
     this.actions.ui.toggleServiceUpdatedInfoBar({ visible: false });
   }
 
-  @action _reorder({ oldIndex, newIndex }) {
+  @action _reorder(params) {
+    const { workspaces } = this.stores;
+    if (workspaces.isAnyWorkspaceActive) {
+      workspaces.reorderServicesOfActiveWorkspace(params);
+    } else {
+      this._reorderService(params);
+    }
+  }
+
+  @action _reorderService({ oldIndex, newIndex }) {
     const showDisabledServices = this.stores.settings.all.app.showDisabledServices;
     const oldEnabledSortIndex = showDisabledServices ? oldIndex : this.all.indexOf(this.enabled[oldIndex]);
     const newEnabledSortIndex = showDisabledServices ? newIndex : this.all.indexOf(this.enabled[newIndex]);
@@ -566,10 +645,25 @@ export default class ServicesStore extends Store {
     }
   }
 
+  _handleMuteSettings() {
+    const { enabled } = this;
+    const { isAppMuted } = this.stores.settings.app;
+
+    enabled.forEach((service) => {
+      const { isAttached } = service;
+      const isMuted = isAppMuted || service.isMuted;
+
+      if (isAttached) {
+        service.webview.setAudioMuted(isMuted);
+      }
+    });
+  }
+
   _shareSettingsWithServiceProcess() {
+    const settings = this.stores.settings.app;
     this.actions.service.sendIPCMessageToAllServices({
       channel: 'settings-update',
-      args: this.stores.settings.all.app,
+      args: settings,
     });
   }
 
@@ -585,23 +679,19 @@ export default class ServicesStore extends Store {
   }
 
   // Helper
-  _redirectToAddServiceRoute(recipeId) {
-    const route = `/settings/services/add/${recipeId}`;
-    this.stores.router.push(route);
-  }
-
   _initializeServiceRecipeInWebview(serviceId) {
     const service = this.one(serviceId);
 
     if (service.webview) {
-      service.webview.send('initializeRecipe', service);
+      debug('Initialize recipe', service.recipe.id, service.name);
+      service.webview.send('initialize-recipe', service.shareWithWebview, service.recipe);
     }
   }
 
   _initRecipePolling(serviceId) {
     const service = this.one(serviceId);
 
-    const delay = 1000;
+    const delay = ms('2s');
 
     if (service) {
       if (service.timer !== null) {
@@ -622,7 +712,7 @@ export default class ServicesStore extends Store {
 
   _reorderAnalytics = debounce(() => {
     gaEvent('Service', 'order');
-  }, 5000);
+  }, ms('5s'));
 
   _wrapIndex(index, delta, size) {
     return (((index + delta) % size) + size) % size;

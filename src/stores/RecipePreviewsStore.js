@@ -1,5 +1,6 @@
 import { action, computed, observable } from 'mobx';
 import { debounce } from 'lodash';
+import ms from 'ms';
 
 import Store from './lib/Store';
 import CachedRequest from './lib/CachedRequest';
@@ -8,7 +9,9 @@ import { gaEvent } from '../lib/analytics';
 
 export default class RecipePreviewsStore extends Store {
   @observable allRecipePreviewsRequest = new CachedRequest(this.api.recipePreviews, 'all');
+
   @observable featuredRecipePreviewsRequest = new CachedRequest(this.api.recipePreviews, 'featured');
+
   @observable searchRecipePreviewsRequest = new Request(this.api.recipePreviews, 'search');
 
   constructor(...args) {
@@ -46,5 +49,5 @@ export default class RecipePreviewsStore extends Store {
   // Helper
   _analyticsSearch = debounce((needle) => {
     gaEvent('Recipe', 'search', needle);
-  }, 3000);
+  }, ms('3s'));
 }

@@ -3,14 +3,8 @@ import PropTypes from 'prop-types';
 import { inject, observer } from 'mobx-react';
 import Import from '../../components/auth/Import';
 import UserStore from '../../stores/UserStore';
-import { gaPage } from '../../lib/analytics';
 
-@inject('stores', 'actions') @observer
-export default class ImportScreen extends Component {
-  componentDidMount() {
-    gaPage('Auth/Import');
-  }
-
+export default @inject('stores', 'actions') @observer class ImportScreen extends Component {
   render() {
     const { actions, stores } = this.props;
 

@@ -9,11 +9,10 @@ import SubscriptionForm from '../../components/subscription/SubscriptionForm';
 
 const { BrowserWindow } = remote;
 
-@inject('stores', 'actions') @observer
-export default class SubscriptionFormScreen extends Component {
+export default @inject('stores', 'actions') @observer class SubscriptionFormScreen extends Component {
   static propTypes = {
     onCloseWindow: PropTypes.func,
-    content: PropTypes.oneOrManyChildElements,
+    content: PropTypes.node,
     showSkipOption: PropTypes.bool,
     skipAction: PropTypes.func,
     skipButtonLabel: PropTypes.string,
@@ -44,26 +43,32 @@ export default class SubscriptionFormScreen extends Component {
     });
 
     const hostedPage = await stores.payment.createHostedPageRequest;
-    const url = `file://${__dirname}/../../index.html#/payment/${encodeURIComponent(hostedPage.url)}`;
 
     if (hostedPage.url) {
-      const paymentWindow = new BrowserWindow({
-        parent: remote.getCurrentWindow(),
-        modal: true,
-        title: '🔒 Franz Supporter License',
-        width: 600,
-        height: window.innerHeight - 100,
-        maxWidth: 600,
-        minWidth: 600,
-        webPreferences: {
-          nodeIntegration: true,
-        },
-      });
-      paymentWindow.loadURL(url);
+      if (hostedPage.legacyCheckoutFlow) {
+        const paymentWindow = new BrowserWindow({
+          parent: remote.getCurrentWindow(),
+          modal: true,
+          title: '🔒 Franz Supporter License',
+          width: 600,
+          height: window.innerHeight - 100,
+          maxWidth: 600,
+          minWidth: 600,
+          webPreferences: {
+            nodeIntegration: true,
+            webviewTag: true,
+          },
+        });
+        paymentWindow.loadURL(`file://${__dirname}/../../index.html#/payment/${encodeURIComponent(hostedPage.url)}`);
 
-      paymentWindow.on('closed', () => {
-        onCloseWindow();
-      });
+        paymentWindow.on('closed', () => {
+          onCloseWindow();
+        });
+      } else {
+        actions.app.openExternalUrl({
+          url: hostedPage.url,
+        });
+      }
     }
   }
 
@@ -80,7 +85,6 @@ export default class SubscriptionFormScreen extends Component {
     return (
       <SubscriptionForm
         plan={stores.payment.plan}
-        // form={this.prepareForm(stores.payment.plan)}
         isLoading={stores.payment.plansRequest.isExecuting}
         retryPlanRequest={() => stores.payment.plansRequest.reload()}
         isCreatingHostedPage={stores.payment.createHostedPageRequest.isExecuting}

@@ -4,9 +4,11 @@ import React from 'react';
 import { render } from 'react-dom';
 import { Provider } from 'mobx-react';
 import { syncHistoryWithStore, RouterStore } from 'mobx-react-router';
-import { Router, Route, hashHistory, IndexRedirect } from 'react-router';
+import {
+  Router, Route, hashHistory, IndexRedirect,
+} from 'react-router';
 
-import 'babel-polyfill';
+import '@babel/polyfill';
 import smoothScroll from 'smoothscroll-polyfill';
 
 import ServerApi from './api/server/ServerApi';
@@ -25,6 +27,7 @@ import RecipesScreen from './containers/settings/RecipesScreen';
 import ServicesScreen from './containers/settings/ServicesScreen';
 import EditServiceScreen from './containers/settings/EditServiceScreen';
 import AccountScreen from './containers/settings/AccountScreen';
+import TeamScreen from './containers/settings/TeamScreen';
 import EditUserScreen from './containers/settings/EditUserScreen';
 import EditSettingsScreen from './containers/settings/EditSettingsScreen';
 import InviteSettingsScreen from './containers/settings/InviteScreen';
@@ -37,6 +40,11 @@ import PricingScreen from './containers/auth/PricingScreen';
 import InviteScreen from './containers/auth/InviteScreen';
 import AuthLayoutContainer from './containers/auth/AuthLayoutContainer';
 import SubscriptionPopupScreen from './containers/subscription/SubscriptionPopupScreen';
+import WorkspacesScreen from './features/workspaces/containers/WorkspacesScreen';
+import EditWorkspaceScreen from './features/workspaces/containers/EditWorkspaceScreen';
+import { WORKSPACES_ROUTES } from './features/workspaces';
+import AnnouncementScreen from './features/announcements/components/AnnouncementScreen';
+import { ANNOUNCEMENTS_ROUTES } from './features/announcements';
 
 // Add Polyfills
 smoothScroll.polyfill();
@@ -60,20 +68,25 @@ window.addEventListener('load', () => {
     menu,
     touchBar,
     analytics,
+    features: {},
     render() {
       const preparedApp = (
         <Provider stores={stores} actions={actions}>
           <I18N>
             <Router history={history}>
               <Route path="/" component={AppLayoutContainer}>
+                <Route path={ANNOUNCEMENTS_ROUTES.TARGET} component={AnnouncementScreen} />
                 <Route path="/settings" component={SettingsWindow}>
                   <IndexRedirect to="/settings/recipes" />
                   <Route path="/settings/recipes" component={RecipesScreen} />
                   <Route path="/settings/recipes/:filter" component={RecipesScreen} />
                   <Route path="/settings/services" component={ServicesScreen} />
                   <Route path="/settings/services/:action/:id" component={EditServiceScreen} />
+                  <Route path={WORKSPACES_ROUTES.ROOT} component={WorkspacesScreen} />
+                  <Route path={WORKSPACES_ROUTES.EDIT} component={EditWorkspaceScreen} />
                   <Route path="/settings/user" component={AccountScreen} />
                   <Route path="/settings/user/edit" component={EditUserScreen} />
+                  <Route path="/settings/team" component={TeamScreen} />
                   <Route path="/settings/app" component={EditSettingsScreen} />
                   <Route path="/settings/invite" component={InviteSettingsScreen} />
                 </Route>

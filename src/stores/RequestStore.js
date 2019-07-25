@@ -1,16 +1,20 @@
 import { action, computed, observable } from 'mobx';
+import ms from 'ms';
 
 import Store from './lib/Store';
 
-const debug = require('debug')('RequestsStore');
+const debug = require('debug')('Franz:RequestsStore');
 
 export default class RequestStore extends Store {
   @observable userInfoRequest;
+
   @observable servicesRequest;
+
   @observable showRequiredRequestsError = false;
 
   retries = 0;
-  retryDelay = 2000;
+
+  retryDelay = ms('2s');
 
   constructor(...args) {
     super(...args);

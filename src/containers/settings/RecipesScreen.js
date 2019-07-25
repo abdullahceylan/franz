@@ -7,16 +7,15 @@ import RecipePreviewsStore from '../../stores/RecipePreviewsStore';
 import RecipeStore from '../../stores/RecipesStore';
 import ServiceStore from '../../stores/ServicesStore';
 import UserStore from '../../stores/UserStore';
-import { gaPage } from '../../lib/analytics';
 
 import RecipesDashboard from '../../components/settings/recipes/RecipesDashboard';
+import ErrorBoundary from '../../components/util/ErrorBoundary';
 
-@inject('stores', 'actions') @observer
-export default class RecipesScreen extends Component {
+export default @inject('stores', 'actions') @observer class RecipesScreen extends Component {
   static propTypes = {
     params: PropTypes.shape({
       filter: PropTypes.string,
-    }).isRequired,
+    }),
   };
 
   static defaultProps = {
@@ -30,21 +29,18 @@ export default class RecipesScreen extends Component {
     currentFilter: 'featured',
   };
 
-  componentDidMount() {
-    gaPage('Settings/Recipe Dashboard/Featured');
+  autorunDisposer = null;
 
-    autorun(() => {
+  componentDidMount() {
+    this.autorunDisposer = autorun(() => {
       const { filter } = this.props.params;
       const { currentFilter } = this.state;
 
       if (filter === 'all' && currentFilter !== 'all') {
-        gaPage('Settings/Recipe Dashboard/All');
         this.setState({ currentFilter: 'all' });
       } else if (filter === 'featured' && currentFilter !== 'featured') {
-        gaPage('Settings/Recipe Dashboard/Featured');
         this.setState({ currentFilter: 'featured' });
       } else if (filter === 'dev' && currentFilter !== 'dev') {
-        gaPage('Settings/Recipe Dashboard/Dev');
         this.setState({ currentFilter: 'dev' });
       }
     });
@@ -52,6 +48,7 @@ export default class RecipesScreen extends Component {
 
   componentWillUnmount() {
     this.props.stores.services.resetStatus();
+    this.autorunDisposer();
   }
 
   searchRecipes(needle) {
@@ -69,7 +66,9 @@ export default class RecipesScreen extends Component {
   }
 
   render() {
-    const { recipePreviews, recipes, services, user } = this.props.stores;
+    const {
+      recipePreviews, recipes, services, user,
+    } = this.props.stores;
     const { showAddServiceInterface } = this.props.actions.service;
 
     const { filter } = this.props.params;
@@ -91,19 +90,21 @@ export default class RecipesScreen extends Component {
       || recipePreviews.searchRecipePreviewsRequest.isExecuting;
 
     return (
-      <RecipesDashboard
-        recipes={allRecipes}
-        isLoading={isLoading}
-        addedServiceCount={services.all.length}
-        isPremium={user.data.isPremium}
-        hasLoadedRecipes={recipePreviews.featuredRecipePreviewsRequest.wasExecuted}
-        showAddServiceInterface={showAddServiceInterface}
-        searchRecipes={e => this.searchRecipes(e)}
-        resetSearch={() => this.resetSearch()}
-        searchNeedle={this.state.needle}
-        serviceStatus={services.actionStatus}
-        devRecipesCount={recipePreviews.dev.length}
-      />
+      <ErrorBoundary>
+        <RecipesDashboard
+          recipes={allRecipes}
+          isLoading={isLoading}
+          addedServiceCount={services.all.length}
+          isPremium={user.data.isPremium}
+          hasLoadedRecipes={recipePreviews.featuredRecipePreviewsRequest.wasExecuted}
+          showAddServiceInterface={showAddServiceInterface}
+          searchRecipes={e => this.searchRecipes(e)}
+          resetSearch={() => this.resetSearch()}
+          searchNeedle={this.state.needle}
+          serviceStatus={services.actionStatus}
+          devRecipesCount={recipePreviews.dev.length}
+        />
+      </ErrorBoundary>
     );
   }
 }

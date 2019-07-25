@@ -4,8 +4,7 @@ import { observer } from 'mobx-react';
 import classnames from 'classnames';
 import Loader from 'react-loader';
 
-@observer
-export default class Infobox extends Component {
+export default @observer class Infobox extends Component {
   static propTypes = {
     children: PropTypes.any.isRequired, // eslint-disable-line
     icon: PropTypes.string,
@@ -14,6 +13,8 @@ export default class Infobox extends Component {
     ctaLabel: PropTypes.string,
     ctaLoading: PropTypes.bool,
     dismissable: PropTypes.bool,
+    onDismiss: PropTypes.func,
+    onSeen: PropTypes.func,
   };
 
   static defaultProps = {
@@ -23,11 +24,18 @@ export default class Infobox extends Component {
     ctaOnClick: () => null,
     ctaLabel: '',
     ctaLoading: false,
+    onDismiss: () => null,
+    onSeen: () => null,
   };
 
   state = {
     dismissed: false,
   };
+
+  componentDidMount() {
+    const { onSeen } = this.props;
+    if (onSeen) onSeen();
+  }
 
   render() {
     const {
@@ -38,6 +46,7 @@ export default class Infobox extends Component {
       ctaLoading,
       ctaOnClick,
       dismissable,
+      onDismiss,
     } = this.props;
 
     if (this.state.dismissed) {
@@ -62,6 +71,7 @@ export default class Infobox extends Component {
           <button
             className="infobox__cta"
             onClick={ctaOnClick}
+            type="button"
           >
             <Loader
               loaded={!ctaLoading}
@@ -75,9 +85,11 @@ export default class Infobox extends Component {
         )}
         {dismissable && (
           <button
-            onClick={() => this.setState({
-              dismissed: true,
-            })}
+            type="button"
+            onClick={() => {
+              this.setState({ dismissed: true });
+              if (onDismiss) onDismiss();
+            }}
             className="infobox__delete mdi mdi-close"
           />
         )}

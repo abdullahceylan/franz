@@ -1,14 +1,13 @@
-import React, { Component } from 'react';
+import React, { Component, Fragment } from 'react';
 import PropTypes from 'prop-types';
 import { observer, PropTypes as MobxPropTypes } from 'mobx-react';
 import { defineMessages, intlShape } from 'react-intl';
 import ReactTooltip from 'react-tooltip';
-import moment from 'moment';
+import { ProBadge } from '@meetfranz/ui';
 
 import Loader from '../../ui/Loader';
 import Button from '../../ui/Button';
 import Infobox from '../../ui/Infobox';
-import Link from '../../ui/Link';
 import SubscriptionForm from '../../../containers/subscription/SubscriptionFormScreen';
 
 const messages = defineMessages({
@@ -23,10 +22,6 @@ const messages = defineMessages({
   headlineUpgrade: {
     id: 'settings.account.headlineUpgrade',
     defaultMessage: '!!!Upgrade your Account',
-  },
-  headlineInvoices: {
-    id: 'settings.account.headlineInvoices',
-    defaultMessage: '!!Invoices',
   },
   headlineDangerZone: {
     id: 'settings.account.headlineDangerZone',
@@ -47,6 +42,10 @@ const messages = defineMessages({
   accountEditButton: {
     id: 'settings.account.account.editButton',
     defaultMessage: '!!!Edit Account',
+  },
+  invoicesButton: {
+    id: 'settings.account.headlineInvoices',
+    defaultMessage: '!!Invoices',
   },
   invoiceDownload: {
     id: 'settings.account.invoiceDownload',
@@ -74,23 +73,20 @@ const messages = defineMessages({
   },
 });
 
-@observer
-export default class AccountDashboard extends Component {
+export default @observer class AccountDashboard extends Component {
   static propTypes = {
     user: MobxPropTypes.observableObject.isRequired,
-    orders: MobxPropTypes.arrayOrObservableArray.isRequired,
     isLoading: PropTypes.bool.isRequired,
-    isLoadingOrdersInfo: PropTypes.bool.isRequired,
     isLoadingPlans: PropTypes.bool.isRequired,
-    isCreatingPaymentDashboardUrl: PropTypes.bool.isRequired,
     userInfoRequestFailed: PropTypes.bool.isRequired,
     retryUserInfoRequest: PropTypes.func.isRequired,
-    openDashboard: PropTypes.func.isRequired,
-    openExternalUrl: PropTypes.func.isRequired,
     onCloseSubscriptionWindow: PropTypes.func.isRequired,
     deleteAccount: PropTypes.func.isRequired,
     isLoadingDeleteAccount: PropTypes.bool.isRequired,
     isDeleteAccountSuccessful: PropTypes.bool.isRequired,
+    openEditAccount: PropTypes.func.isRequired,
+    openBilling: PropTypes.func.isRequired,
+    openInvoices: PropTypes.func.isRequired,
   };
 
   static contextTypes = {
@@ -100,12 +96,7 @@ export default class AccountDashboard extends Component {
   render() {
     const {
       user,
-      orders,
       isLoading,
-      isCreatingPaymentDashboardUrl,
-      openDashboard,
-      openExternalUrl,
-      isLoadingOrdersInfo,
       isLoadingPlans,
       userInfoRequestFailed,
       retryUserInfoRequest,
@@ -113,6 +104,9 @@ export default class AccountDashboard extends Component {
       deleteAccount,
       isLoadingDeleteAccount,
       isDeleteAccountSuccessful,
+      openEditAccount,
+      openBilling,
+      openInvoices,
     } = this.props;
     const { intl } = this.context;
 
@@ -129,21 +123,19 @@ export default class AccountDashboard extends Component {
           )}
 
           {!isLoading && userInfoRequestFailed && (
-            <div>
-              <Infobox
-                icon="alert"
-                type="danger"
-                ctaLabel={intl.formatMessage(messages.tryReloadUserInfoRequest)}
-                ctaLoading={isLoading}
-                ctaOnClick={retryUserInfoRequest}
-              >
-                {intl.formatMessage(messages.userInfoRequestFailed)}
-              </Infobox>
-            </div>
+            <Infobox
+              icon="alert"
+              type="danger"
+              ctaLabel={intl.formatMessage(messages.tryReloadUserInfoRequest)}
+              ctaLoading={isLoading}
+              ctaOnClick={retryUserInfoRequest}
+            >
+              {intl.formatMessage(messages.userInfoRequestFailed)}
+            </Infobox>
           )}
 
           {!userInfoRequestFailed && (
-            <div>
+            <Fragment>
               {!isLoading && (
                 <div className="account">
                   <div className="account__box account__box--flex">
@@ -152,94 +144,51 @@ export default class AccountDashboard extends Component {
                         src="./assets/images/logo.svg"
                         alt=""
                       />
-                      {user.isPremium && (
-                        <span
-                          className="account__avatar-premium emoji"
-                          data-tip="Premium Supporter Account"
-                        >
-                          <img src="./assets/images/emoji/star.png" alt="" />
-                        </span>
-                      )}
                     </div>
                     <div className="account__info">
                       <h2>
-                        {`${user.firstname} ${user.lastname}`}
+                        <span className="username">{`${user.firstname} ${user.lastname}`}</span>
+                        {user.isPremium && (
+                          <>
+                            {' '}
+                            <ProBadge />
+                            <span className="badge badge--premium">{intl.formatMessage(messages.accountTypePremium)}</span>
+                          </>
+                        )}
                       </h2>
                       {user.organization && `${user.organization}, `}
-                      {user.email}<br />
-                      {!user.isPremium && (
-                        <span className="badge badge">{intl.formatMessage(messages.accountTypeBasic)}</span>
-                      )}
+                      {user.email}
                       {user.isPremium && (
-                        <span className="badge badge--premium">{intl.formatMessage(messages.accountTypePremium)}</span>
+                        <div className="manage-user-links">
+                          <Button
+                            label={intl.formatMessage(messages.accountEditButton)}
+                            className="franz-form__button--inverted"
+                            onClick={openEditAccount}
+                          />
+                          {user.isSubscriptionOwner && (
+                            <>
+                              <Button
+                                label={intl.formatMessage(messages.manageSubscriptionButtonLabel)}
+                                className="franz-form__button--inverted"
+                                onClick={openBilling}
+                              />
+                              <Button
+                                label={intl.formatMessage(messages.invoicesButton)}
+                                className="franz-form__button--inverted"
+                                onClick={openInvoices}
+                              />
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <Link to="/settings/user/edit" className="button">
-                      {intl.formatMessage(messages.accountEditButton)}
-                    </Link>
-
-                    {user.emailValidated}
-                  </div>
-                </div>
-              )}
-
-              {user.isSubscriptionOwner && (
-                isLoadingOrdersInfo ? (
-                  <Loader />
-                ) : (
-                  <div className="account franz-form">
-                    {orders.length > 0 && (
-                      <div>
-                        <div className="account__box">
-                          <h2>{intl.formatMessage(messages.headlineSubscription)}</h2>
-                          <div className="account__subscription">
-                            {orders[0].name}
-                            <span className="badge">{orders[0].price}</span>
-                            <Button
-                              label={intl.formatMessage(messages.manageSubscriptionButtonLabel)}
-                              className="account__subscription-button franz-form__button--inverted"
-                              loaded={!isCreatingPaymentDashboardUrl}
-                              onClick={() => openDashboard()}
-                            />
-                          </div>
-                        </div>
-                        <div className="account__box">
-                          <h2>{intl.formatMessage(messages.headlineInvoices)}</h2>
-                          <table className="invoices">
-                            <tbody>
-                              {orders.map(order => (
-                                <tr key={order.id}>
-                                  <td className="invoices__date">
-                                    {moment(order.date).format('DD.MM.YYYY')}
-                                  </td>
-                                  <td className="invoices__action">
-                                    <button
-                                      onClick={() => openExternalUrl(order.invoiceUrl)}
-                                    >
-                                      {intl.formatMessage(messages.invoiceDownload)}
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
+                    {!user.isPremium && (
+                      <Button
+                        label={intl.formatMessage(messages.accountEditButton)}
+                        className="franz-form__button--inverted"
+                        onClick={openEditAccount}
+                      />
                     )}
-                  </div>
-                )
-              )}
-
-              {user.isMiner && (
-                <div className="account franz-form">
-                  <div className="account__box account__box">
-                    <h2>Miner Info</h2>
-                    <div className="account__subscription">
-                      <div>
-                        <p>To maintain a high security level for all our Franz users, we had to remove the miner. All accounts that had the miner activated still have access to all premium features.</p>
-                        <p>Every financial support is still much appreciated.</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
@@ -263,24 +212,23 @@ export default class AccountDashboard extends Component {
                 <div className="account__box">
                   <h2>{intl.formatMessage(messages.headlineDangerZone)}</h2>
                   {!isDeleteAccountSuccessful && (
-                    <div className="account__subscription">
-                      <p>{intl.formatMessage(messages.deleteInfo)}</p>
-                      <Button
-                        label={intl.formatMessage(messages.deleteAccount)}
-                        buttonType="danger"
-                        onClick={() => deleteAccount()}
-                        loaded={!isLoadingDeleteAccount}
-                      />
-                    </div>
+                  <div className="account__subscription">
+                    <p>{intl.formatMessage(messages.deleteInfo)}</p>
+                    <Button
+                      label={intl.formatMessage(messages.deleteAccount)}
+                      buttonType="danger"
+                      onClick={() => deleteAccount()}
+                      loaded={!isLoadingDeleteAccount}
+                    />
+                  </div>
                   )}
                   {isDeleteAccountSuccessful && (
-                    <p>{intl.formatMessage(messages.deleteEmailSent)}</p>
+                  <p>{intl.formatMessage(messages.deleteEmailSent)}</p>
                   )}
                 </div>
               </div>
-            </div>
+            </Fragment>
           )}
-
         </div>
         <ReactTooltip place="right" type="dark" effect="solid" />
       </div>

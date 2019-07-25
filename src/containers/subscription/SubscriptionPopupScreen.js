@@ -5,8 +5,7 @@ import { inject, observer } from 'mobx-react';
 import SubscriptionPopup from '../../components/subscription/SubscriptionPopup';
 
 
-@inject('stores', 'actions') @observer
-export default class SubscriptionPopupScreen extends Component {
+export default @inject('stores', 'actions') @observer class SubscriptionPopupScreen extends Component {
   state = {
     complete: false,
   };
@@ -14,7 +13,7 @@ export default class SubscriptionPopupScreen extends Component {
   completeCheck(event) {
     const { url } = event;
 
-    if (url.includes('recurly') && url.includes('confirmation')) {
+    if ((url.includes('recurly') && url.includes('confirmation')) || (url.includes('meetfranz') && url.includes('success'))) {
       this.setState({
         complete: true,
       });

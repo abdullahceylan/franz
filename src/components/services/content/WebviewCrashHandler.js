@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { observer } from 'mobx-react';
 import { defineMessages, intlShape } from 'react-intl';
+import ms from 'ms';
 
 import Button from '../../ui/Button';
 
@@ -24,8 +25,7 @@ const messages = defineMessages({
   },
 });
 
-@observer
-export default class WebviewCrashHandler extends Component {
+export default @observer class WebviewCrashHandler extends Component {
   static propTypes = {
     name: PropTypes.string.isRequired,
     reload: PropTypes.func.isRequired,
@@ -36,16 +36,21 @@ export default class WebviewCrashHandler extends Component {
   };
 
   state = {
-    countdown: 10000,
+    countdown: ms('10s'),
   }
+
+  countdownInterval = null;
+
+  countdownIntervalTimeout = ms('1s');
+
 
   componentDidMount() {
     const { reload } = this.props;
 
     this.countdownInterval = setInterval(() => {
-      this.setState({
-        countdown: this.state.countdown - this.countdownIntervalTimeout,
-      });
+      this.setState(prevState => ({
+        countdown: prevState.countdown - this.countdownIntervalTimeout,
+      }));
 
       if (this.state.countdown <= 0) {
         reload();
@@ -53,9 +58,6 @@ export default class WebviewCrashHandler extends Component {
       }
     }, this.countdownIntervalTimeout);
   }
-
-  countdownInterval = null;
-  countdownIntervalTimeout = 1000;
 
   render() {
     const { name, reload } = this.props;
@@ -71,10 +73,12 @@ export default class WebviewCrashHandler extends Component {
           buttonType="inverted"
           onClick={() => reload()}
         />
-        <p className="footnote">{intl.formatMessage(messages.autoReload, {
-          name,
-          seconds: this.state.countdown / 1000,
-        })}</p>
+        <p className="footnote">
+          {intl.formatMessage(messages.autoReload, {
+            name,
+            seconds: this.state.countdown / ms('1s'),
+          })}
+        </p>
       </div>
     );
   }

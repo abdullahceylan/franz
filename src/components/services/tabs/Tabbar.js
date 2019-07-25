@@ -4,8 +4,7 @@ import { observer, PropTypes as MobxPropTypes } from 'mobx-react';
 
 import TabBarSortableList from './TabBarSortableList';
 
-@observer
-export default class TabBar extends Component {
+export default @observer class TabBar extends Component {
   static propTypes = {
     services: MobxPropTypes.arrayOrObservableArray.isRequired,
     setActive: PropTypes.func.isRequired,
@@ -20,7 +19,7 @@ export default class TabBar extends Component {
     updateService: PropTypes.func.isRequired,
     showMessageBadgeWhenMutedSetting: PropTypes.bool.isRequired,
     showMessageBadgesEvenWhenMuted: PropTypes.bool.isRequired,
-  }
+  };
 
   onSortEnd = ({ oldIndex, newIndex }) => {
     const {
@@ -46,7 +45,7 @@ export default class TabBar extends Component {
         redirect: false,
       });
     }
-  }
+  };
 
   disableService({ serviceId }) {
     this.toggleService({ serviceId, isEnabled: false });

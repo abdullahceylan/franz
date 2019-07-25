@@ -3,11 +3,10 @@ import PropTypes from 'prop-types';
 import { observer, PropTypes as MobxPropTypes } from 'mobx-react';
 import { defineMessages, intlShape } from 'react-intl';
 import { Link } from 'react-router';
-
-// import { Link } from 'react-router';
+import { Input } from '@meetfranz/forms';
 
 import Form from '../../../lib/Form';
-import Input from '../../ui/Input';
+// import Input from '../../ui/Input';
 import Button from '../../ui/Button';
 import Radio from '../../ui/Radio';
 import Infobox from '../../ui/Infobox';
@@ -39,17 +38,12 @@ const messages = defineMessages({
   },
 });
 
-@observer
-export default class EditServiceForm extends Component {
+export default @observer class EditUserForm extends Component {
   static propTypes = {
     status: MobxPropTypes.observableArray.isRequired,
     form: PropTypes.instanceOf(Form).isRequired,
     onSubmit: PropTypes.func.isRequired,
     isSaving: PropTypes.bool.isRequired,
-  };
-
-  static defaultProps = {
-    service: {},
   };
 
   static contextTypes = {
@@ -101,21 +95,21 @@ export default class EditServiceForm extends Component {
             )}
             <h2>{intl.formatMessage(messages.headlineAccount)}</h2>
             <div className="grid__row">
-              <Input field={form.$('firstname')} focus />
-              <Input field={form.$('lastname')} />
+              <Input {...form.$('firstname').bind()} focus />
+              <Input {...form.$('lastname').bind()} />
             </div>
-            <Input field={form.$('email')} />
+            <Input {...form.$('email').bind()} />
             <Radio field={form.$('accountType')} />
             {form.$('accountType').value === 'company' && (
               <Input field={form.$('organization')} />
             )}
             <h2>{intl.formatMessage(messages.headlinePassword)}</h2>
             <Input
-              field={form.$('oldPassword')}
+              {...form.$('oldPassword').bind()}
               showPasswordToggle
             />
             <Input
-              field={form.$('newPassword')}
+              {...form.$('newPassword').bind()}
               showPasswordToggle
               scorePassword
             />
